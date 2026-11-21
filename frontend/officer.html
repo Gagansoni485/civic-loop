@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CivicLoop - Officer Dashboard</title>
+<style>
+:root{--navy:#0b1d33;--paper:#f3f5f8;--card:#fff;--ink:#14202e;--mute:#5b6b7d;--line:#d9e0e8;--signal:#f2b705;--ok:#1f7a4d;--bad:#b3261e;--review:#b45309}
+@media (prefers-color-scheme:dark){:root{--paper:#0e1620;--card:#16212e;--ink:#e6edf5;--mute:#93a3b5;--line:#2a3a4c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+header{background:var(--navy);color:#fff;padding:14px 20px;border-bottom:4px solid var(--signal);display:flex;justify-content:space-between;align-items:center}
+header h1{margin:0;font-size:1.3rem}
+.user-info{font-size:0.9rem;color:#b8c7d9}
+main{max-width:1200px;margin:20px auto;padding:0 16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;text-align:center}
+.stat-card h3{margin:0;font-size:0.85rem;color:var(--mute);text-transform:uppercase}
+.stat-card .number{font-size:2rem;font-weight:700;margin:8px 0;color:var(--navy)}
+.stat-card.urgent .number{color:var(--bad)}
+.stat-card.good .number{color:var(--ok)}
+.filters{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filters label{font-weight:600;font-size:0.9rem}
+.filters select,.filters button{padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit}
+.filters button{background:var(--navy);color:#fff;cursor:pointer;border-color:var(--navy)}
+.filters button:hover{opacity:0.9}
+.ticket-list{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
+.ticket-item{border-bottom:1px solid var(--line);padding:16px 0;display:flex;gap:16px;align-items:start}
+.ticket-item:last-child{border-bottom:none}
+.ticket-item img{width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.ticket-content{flex:1}
+.ticket-header{display:flex;justify-content:space-between;align-items:start;margin-bottom:8px}
+.ticket-id{font-weight:700;font-size:1.1rem;color:var(--navy)}
+.badge{font-size:0.75rem;padding:4px 10px;border-radius:99px;border:1px solid currentColor;text-transform:uppercase;font-weight:600}
+.badge.open{color:var(--review)}
+.badge.needs_review{color:var(--bad)}
+.badge.resolved{color:var(--ok)}
+.badge.assigned{color:#0066cc}
+.priority{font-size:0.9rem;color:var(--mute);margin:4px 0}
+.priority-high{color:var(--bad);font-weight:600}
+.reasons{font-size:0.85rem;color:var(--mute);margin:8px 0;padding-left:16px}
+.reasons li{margin:4px 0}
+.ticket-actions{display:flex;gap:8px;margin-top:12px}
+.btn{padding:8px 16px;border:1px solid var(--line);border-radius:6px;font:inherit;cursor:pointer;font-size:0.85rem}
+.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn-secondary{background:transparent;color:var(--ink)}
+.btn:hover{opacity:0.9}
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center}
+.modal.active{display:flex}
+.modal-content{background:var(--card);border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-header h2{margin:0}
+.close{font-size:1.5rem;cursor:pointer;color:var(--mute);background:none;border:none}
+.form-group{margin:16px 0}
+.form-group label{display:block;margin-bottom:6px;font-weight:600}
+.form-group input[type=file],.form-group textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;background:var(--paper);color:var(--ink)}
+.form-group textarea{min-height:80px;resize:vertical}
+.verification-result{margin:16px 0;padding:12px;border-radius:6px;border-left:4px solid}
+.verification-result.success{background:#e8f5e9;border-color:var(--ok)}
+.verification-result.failure{background:#ffebee;border-color:var(--bad)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--mute)}
+.empty-state img{width:120px;opacity:0.5;margin-bottom:20px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🏛️ CivicLoop Officer Dashboard</h1>
+    <p style="margin:0;font-size:0.85rem;color:#b8c7d9">Municipal Complaint Management</p>
+  </div>
+  <div class="user-info">
+    <div id="officerName">Officer</div>
+    <button class="btn btn-secondary" id="logoutBtn" style="margin-top:8px;padding:6px 12px">Logout</button>
+  </div>
+</header>
+
+<main>
+  <!-- Statistics -->
+  <div class="stats">
+    <div class="stat-card">
+      <h3>My Assigned</h3>
+      <div class="number" id="statAssigned">0</div>
+    </div>
+    <div class="stat-card urgent">
+      <h3>Overdue</h3>
+      <div class="number" id="statOverdue">0</div>
+    </div>
+    <div class="stat-card">
+      <h3>Needs Review</h3>
+      <div class="number" id="statReview">0</div>
+    </div>
+    <div class="stat-card good">
+      <h3>Resolved Today</h3>
+      <div class="number" id="statResolved">0</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <label>Filter:</label>
+    <select id="filterStatus">
+      <option value="">All Status</option>
+      <option value="open">Open</option>
+      <option value="assigned">Assigned</option>
+      <option value="in_progress">In Progress</option>
+      <option value="needs_review">Needs Review</option>
+      <option value="resolved">Resolved</option>
+    </select>
+    <select id="filterCategory">
+      <option value="">All Categories</option>
+      <option value="pothole">Pothole</option>
+      <option value="streetlight">Streetlight</option>
+      <option value="water_leak">Water Leak</option>
+      <option value="garbage">Garbage</option>
+      <option value="live_wire">Live Wire</option>
+    </select>
+    <select id="sortBy">
+      <option value="priority">Sort by Priority</option>
+      <option value="date">Sort by Date</option>
+      <option value="sla">Sort by Deadline</option>
+    </select>
+    <button id="refreshBtn">🔄 Refresh</button>
+  </div>
+
+  <!-- Ticket List -->
+  <div class="ticket-list" id="ticketList">
+    <div class="empty-state">
+      <div style="font-size:3rem">📋</div>
+      <h3>No tickets yet</h3>
+      <p>Assigned tickets will appear here</p>
+    </div>
+  </div>
+</main>
+
+<!-- Resolution Modal -->
+<div class="modal" id="resolutionModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Submit Resolution</h2>
+      <button class="close" onclick="closeModal()">&times;</button>
+    </div>
+    <div id="modalTicketInfo"></div>
+    <form id="resolutionForm">
+      <input type="hidden" id="resolveTicketId">
+      <div class="form-group">
+        <label>📷 Repair Photo (taken at location)</label>
+        <input type="file" id="repairPhoto" accept="image/*" capture="environment" required>
+        <small style="color:var(--mute)">Take a photo showing the repair is complete</small>
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="useDemoLocation" style="width:auto;margin-right:6px">
+          Demo Mode: Use ticket's location (for testing)
+        </label>
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="resolutionNotes" placeholder="Any additional notes about the repair..."></textarea>
+      </div>
+      <div id="verificationResult"></div>
+      <div style="display:flex;gap:12px;margin-top:20px">
+        <button type="submit" class="btn btn-primary" style="flex:1">Submit Resolution</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Clock Stop Modal -->
+<div class="modal" id="clockStopModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Request SLA Extension</h2>
+      <button class="close" onclick="closeClockModal()">&times;</button>
+    </div>
+    <p>Request additional time due to external factors:</p>
+    <form id="clockStopForm">
+      <input type="hidden" id="clockStopTicketId">
+      <div class="form-group">
+        <label>Reason for Extension *</label>
+        <textarea id="clockStopReason" required placeholder="e.g., Waiting for materials, Heavy rain, Equipment unavailable..."></textarea>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:20px">
+        <button type="submit" class="btn btn-primary" style="flex:1">Submit Request</button>
+        <button type="button" class="btn btn-secondary" onclick="closeClockModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API_BASE = '';
+let currentOfficerId = 1; // In production, get from login
+let allTickets = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadTickets();
+  setupEventListeners();
+});
+
+function setupEventListeners() {
+  document.getElementById('filterStatus').addEventListener('change', applyFilters);
+  document.getElementById('filterCategory').addEventListener('change', applyFilters);
+  document.getElementById('sortBy').addEventListener('change', applyFilters);
+  document.getElementById('refreshBtn').addEventListener('click', loadTickets);
+  document.getElementById('resolutionForm').addEventListener('submit', submitResolution);
+  document.getElementById('clockStopForm').addEventListener('submit', submitClockStop);
+}
+
+async function loadTickets() {
+  try {
+    // In production, filter by officer_id=${currentOfficerId}
+    const response = await fetch(`${API_BASE}/tickets`);
+    allTickets = await response.json();
+    updateStats();
+    applyFilters();
+  } catch (error) {
+    console.error('Failed to load tickets:', error);
+    showError('Failed to load tickets');
+  }
+}
+
+function updateStats() {
+  const assigned = allTickets.filter(t => t.status !== 'resolved').length;
+  const now = new Date();
+  const overdue = allTickets.filter(t => 
+    t.status !== 'resolved' && new Date(t.sla_deadline) < now
+  ).length;
+  const review = allTickets.filter(t => t.status === 'needs_review').length;
+  const today = new Date().toISOString().split('T')[0];
+  const resolved = allTickets.filter(t => 
+    t.status === 'resolved' && t.created_at && t.created_at.startsWith(today)
+  ).length;
+
+  document.getElementById('statAssigned').textContent = assigned;
+  document.getElementById('statOverdue').textContent = overdue;
+  document.getElementById('statReview').textContent = review;
+  document.getElementById('statResolved').textContent = resolved;
+}
+
+function applyFilters() {
+  const status = document.getElementById('filterStatus').value;
+  const category = document.getElementById('filterCategory').value;
+  const sortBy = document.getElementById('sortBy').value;
+
+  let filtered = [...allTickets];
+
+  if (status) {
+    filtered = filtered.filter(t => t.status === status);
+  }
+  if (category) {
+    filtered = filtered.filter(t => t.category === category);
+  }
+
+  // Sort
+  if (sortBy === 'priority') {
+    filtered.sort((a, b) => b.priority - a.priority);
+  } else if (sortBy === 'date') {
+    filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  } else if (sortBy === 'sla') {
+    filtered.sort((a, b) => new Date(a.sla_deadline) - new Date(b.sla_deadline));
+  }
+
+  renderTickets(filtered);
+}
+
+function renderTickets(tickets) {
+  const container = document.getElementById('ticketList');
+  
+  if (tickets.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div style="font-size:3rem">📋</div>
+        <h3>No tickets match filters</h3>
+        <p>Try adjusting your filters</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = tickets.map(ticket => {
+    const isOverdue = new Date(ticket.sla_deadline) < new Date() && ticket.status !== 'resolved';
+    const priorityClass = ticket.priority > 50 ? 'priority-high' : '';
+    
+    return `
+      <div class="ticket-item">
+        <img src="/${ticket.before_image}" alt="${ticket.category}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23e0e0e0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Image%3C/text%3E%3C/svg%3E'">
+        <div class="ticket-content">
+          <div class="ticket-header">
+            <div>
+              <span class="ticket-id">#${ticket.id}</span>
+              <span class="badge ${ticket.status}">${ticket.status.replace('_', ' ')}</span>
+              ${isOverdue ? '<span class="badge" style="color:var(--bad)">⏰ OVERDUE</span>' : ''}
+            </div>
+            <div style="text-align:right;font-size:0.85rem;color:var(--mute)">
+              ${new Date(ticket.created_at).toLocaleDateString()}
+            </div>
+          </div>
+          <div><strong>${ticket.category.replace('_', ' ').toUpperCase()}</strong></div>
+          <div class="priority ${priorityClass}">
+            Priority: ${ticket.priority.toFixed(1)} | ${ticket.reporter_count} reporter(s)
+            ${ticket.is_repeat_defect ? ' | 🔄 REPEAT DEFECT' : ''}
+          </div>
+          <ul class="reasons">
+            ${ticket.priority_reasons.map(r => `<li>${r}</li>`).join('')}
+          </ul>
+          <div style="font-size:0.85rem;color:var(--mute)">
+            📍 ${ticket.lat.toFixed(4)}, ${ticket.lng.toFixed(4)} | 
+            ⏱ Deadline: ${new Date(ticket.sla_deadline).toLocaleString()}
+          </div>
+          <div class="ticket-actions">
+            ${ticket.status !== 'resolved' ? `
+              <button class="btn btn-primary" onclick="openResolutionModal(${ticket.id})">
+                📸 Submit Resolution
+              </button>
+              <button class="btn btn-secondary" onclick="openClockStopModal(${ticket.id})">
+                ⏸ Request Extension
+              </button>
+            ` : ''}
+            <button class="btn btn-secondary" onclick="viewDetails(${ticket.id})">
+              👁 View Details
+            </button>
+            ${ticket.is_repeat_defect ? `
+              <button class="btn btn-secondary" onclick="downloadEvidence(${ticket.id})">
+                📄 Evidence Report
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openResolutionModal(ticketId) {
+  const ticket = allTickets.find(t => t.id === ticketId);
+  if (!ticket) return;
+
+  document.getElementById('resolveTicketId').value = ticketId;
+  document.getElementById('modalTicketInfo').innerHTML = `
+    <div style="background:var(--paper);padding:12px;border-radius:6px;margin-bottom:16px">
+      <strong>Ticket #${ticketId}</strong> - ${ticket.category.replace('_', ' ')}<br>
+      <small style="color:var(--mute)">Location: ${ticket.lat.toFixed(4)}, ${ticket.lng.toFixed(4)}</small>
+    </div>
+  `;
+  document.getElementById('verificationResult').innerHTML = '';
+  document.getElementById('resolutionForm').reset();
+  document.getElementById('resolutionModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('resolutionModal').classList.remove('active');
+}
+
+async function submitResolution(e) {
+  e.preventDefault();
+  
+  const ticketId = document.getElementById('resolveTicketId').value;
+  const photoFile = document.getElementById('repairPhoto').files[0];
+  const useDemoLoc = document.getElementById('useDemoLocation').checked;
+  
+  if (!photoFile) {
+    alert('Please select a photo');
+    return;
+  }
+
+  const button = e.target.querySelector('button[type=submit]');
+  button.disabled = true;
+  button.textContent = 'Verifying...';
+
+  try {
+    let lat, lng, accuracy = 10;
+    
+    if (useDemoLoc) {
+      // Use ticket's location for demo
+      const ticket = allTickets.find(t => t.id == ticketId);
+      lat = ticket.lat;
+      lng = ticket.lng;
+      accuracy = 5;
+    } else {
+      // Get real location
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000
+        });
+      });
+      lat = position.coords.latitude;
+      lng = position.coords.longitude;
+      accuracy = position.coords.accuracy || 10;
+    }
+
+    const formData = new FormData();
+    formData.append('image', photoFile);
+    formData.append('lat', lat);
+    formData.append('lng', lng);
+    formData.append('accuracy_m', accuracy);
+    formData.append('officer_id', currentOfficerId);
+
+    const response = await fetch(`${API_BASE}/tickets/${ticketId}/resolution`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+    
+    // Show verification result
+    const resultDiv = document.getElementById('verificationResult');
+    const isSuccess = result.status === 'resolved';
+    
+    resultDiv.innerHTML = `
+      <div class="verification-result ${isSuccess ? 'success' : 'failure'}">
+        <h3>${isSuccess ? '✅ Verification Passed' : '⚠️ Needs Review'}</h3>
+        <p><strong>Status:</strong> ${result.status}</p>
+        ${result.verification_details ? `
+          <p><strong>Score:</strong> ${(result.verification_details.verification_score * 100).toFixed(0)}%</p>
+          <ul>
+            <li>Location: ${result.verification_details.location_ok ? '✅' : '❌'} (${result.verification_details.distance_m}m away)</li>
+            <li>Scene Match: ${result.verification_details.scene_match_ok ? '✅' : '❌'} (${result.verification_details.orb_matches} features)</li>
+            <li>Defect Gone: ${result.verification_details.defect_check_ok ? '✅' : '❌'}</li>
+          </ul>
+        ` : ''}
+        ${result.reasons && result.reasons.length > 0 ? `
+          <p><strong>Details:</strong></p>
+          <ul>${result.reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+        ` : ''}
+      </div>
+    `;
+
+    button.textContent = isSuccess ? '✅ Submitted' : '⚠️ Needs Review';
+    
+    setTimeout(() => {
+      loadTickets();
+      if (isSuccess) {
+        closeModal();
+      }
+    }, 3000);
+
+  } catch (error) {
+    console.error('Submission failed:', error);
+    document.getElementById('verificationResult').innerHTML = `
+      <div class="verification-result failure">
+        <h3>❌ Error</h3>
+        <p>${error.message || 'Failed to submit resolution'}</p>
+      </div>
+    `;
+    button.disabled = false;
+    button.textContent = 'Submit Resolution';
+  }
+}
+
+function openClockStopModal(ticketId) {
+  document.getElementById('clockStopTicketId').value = ticketId;
+  document.getElementById('clockStopForm').reset();
+  document.getElementById('clockStopModal').classList.add('active');
+}
+
+function closeClockModal() {
+  document.getElementById('clockStopModal').classList.remove('active');
+}
+
+async function submitClockStop(e) {
+  e.preventDefault();
+  
+  const ticketId = document.getElementById('clockStopTicketId').value;
+  const reason = document.getElementById('clockStopReason').value;
+
+  try {
+    const formData = new FormData();
+    formData.append('reason', reason);
+    formData.append('officer_id', currentOfficerId);
+
+    const response = await fetch(`${API_BASE}/tickets/${ticketId}/clock-stop`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (response.ok) {
+      alert('✅ Extension request submitted');
+      closeClockModal();
+      loadTickets();
+    } else {
+      alert('❌ Failed to submit request');
+    }
+  } catch (error) {
+    console.error('Failed:', error);
+    alert('❌ Error submitting request');
+  }
+}
+
+async function viewDetails(ticketId) {
+  window.location.href = `/?ticket=${ticketId}`;
+}
+
+async function downloadEvidence(ticketId) {
+  window.open(`${API_BASE}/tickets/${ticketId}/evidence.pdf`, '_blank');
+}
+
+function showError(message) {
+  alert(message);
+}
+</script>
+</body>
+</html>

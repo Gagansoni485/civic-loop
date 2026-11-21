@@ -1,0 +1,37 @@
+fastapi
+uvicorn[standard]
+sqlalchemy>=2.0
+python-multipart
+opencv-python-headless
+numpy
+pytest
+
+# Authentication
+bcrypt
+pyjwt
+python-jose[cryptography]
+
+# Database & GIS
+psycopg2-binary
+geoalchemy2
+alembic
+
+# ML & Image Processing
+pillow
+scikit-learn
+scikit-image
+onnxruntime
+
+# Background Tasks
+apscheduler
+
+# PDF Generation
+reportlab
+
+# HTTP Requests
+httpx
+
+# Image Embeddings (optional - large dependencies)
+# torch
+# torchvision
+# timm

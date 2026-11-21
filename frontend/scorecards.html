@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CivicLoop - Ward Performance</title>
+<style>
+:root{--navy:#0b1d33;--paper:#f3f5f8;--card:#fff;--ink:#14202e;--mute:#5b6b7d;--line:#d9e0e8;--signal:#f2b705;--ok:#1f7a4d;--bad:#b3261e;--review:#b45309}
+@media (prefers-color-scheme:dark){:root{--paper:#0e1620;--card:#16212e;--ink:#e6edf5;--mute:#93a3b5;--line:#2a3a4c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+header{background:var(--navy);color:#fff;padding:20px;border-bottom:4px solid var(--signal);text-align:center}
+header h1{margin:0;font-size:1.8rem}
+header p{margin:8px 0 0;color:#b8c7d9;font-size:0.95rem}
+main{max-width:1400px;margin:20px auto;padding:0 16px}
+.intro{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px;margin-bottom:20px}
+.intro h2{margin:0 0 12px;color:var(--navy)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:30px}
+.summary-card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px;text-align:center}
+.summary-card h3{margin:0;font-size:0.9rem;color:var(--mute);text-transform:uppercase}
+.summary-card .number{font-size:2.5rem;font-weight:700;margin:12px 0;color:var(--navy)}
+.summary-card.good .number{color:var(--ok)}
+.summary-card.bad .number{color:var(--bad)}
+.leaderboard{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px;margin-bottom:20px}
+.leaderboard h2{margin:0 0 20px;color:var(--navy)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line)}
+th{background:var(--paper);font-weight:600;color:var(--navy)}
+tr:hover{background:var(--paper)}
+.rank{width:60px;text-align:center;font-weight:700;font-size:1.2rem}
+.rank.gold{color:#ffd700}
+.rank.silver{color:#c0c0c0}
+.rank.bronze{color:#cd7f32}
+.ward-name{font-weight:600}
+.metric{text-align:center}
+.metric.good{color:var(--ok);font-weight:600}
+.metric.bad{color:var(--bad);font-weight:600}
+.metric.warning{color:var(--review);font-weight:600}
+.progress-bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:4px 0}
+.progress-fill{height:100%;background:var(--ok);transition:width 0.3s}
+.progress-fill.warning{background:var(--review)}
+.progress-fill.bad{background:var(--bad)}
+.footer{text-align:center;padding:40px 20px;color:var(--mute);font-size:0.9rem}
+.updated{font-size:0.85rem;color:var(--mute);margin-top:16px;text-align:center}
+.chart{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px;margin-bottom:20px}
+.chart h3{margin:0 0 16px;color:var(--navy)}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.chart-item{text-align:center;padding:16px;background:var(--paper);border-radius:6px}
+.chart-item .label{font-size:0.85rem;color:var(--mute);margin-bottom:8px}
+.chart-item .value{font-size:1.8rem;font-weight:700;color:var(--navy)}
+.badge{display:inline-block;padding:4px 12px;border-radius:99px;font-size:0.75rem;font-weight:600;text-transform:uppercase}
+.badge.excellent{background:#e8f5e9;color:var(--ok)}
+.badge.good{background:#fff9c4;color:#f57c00}
+.badge.needs-attention{background:#ffebee;color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏛️ CivicLoop Public Dashboard</h1>
+  <p>Ward-Level Performance Transparency</p>
+</header>
+
+<main>
+  <div class="intro">
+    <h2>Real-Time Municipal Performance</h2>
+    <p>This dashboard shows how quickly each ward responds to and resolves civic complaints. All data is updated in real-time and publicly available to ensure accountability and transparency.</p>
+  </div>
+
+  <!-- System Summary -->
+  <div class="summary" id="summary">
+    <div class="summary-card">
+      <h3>Total Complaints</h3>
+      <div class="number" id="totalComplaints">-</div>
+    </div>
+    <div class="summary-card good">
+      <h3>Resolution Rate</h3>
+      <div class="number" id="resolutionRate">-%</div>
+    </div>
+    <div class="summary-card">
+      <h3>Avg. Response Time</h3>
+      <div class="number" id="avgTime">- hrs</div>
+    </div>
+    <div class="summary-card">
+      <h3>Active Wards</h3>
+      <div class="number" id="activeWards">-</div>
+    </div>
+  </div>
+
+  <!-- Performance Charts -->
+  <div class="chart">
+    <h3>📊 Performance Metrics</h3>
+    <div class="chart-grid" id="performanceMetrics">
+      <div class="chart-item">
+        <div class="label">Verified by Citizens</div>
+        <div class="value" id="citizenVerified">-%</div>
+      </div>
+      <div class="chart-item">
+        <div class="label">Reopened Tickets</div>
+        <div class="value" id="reopenRate">-%</div>
+      </div>
+      <div class="chart-item">
+        <div class="label">Repeat Defects</div>
+        <div class="value" id="repeatDefects">-</div>
+      </div>
+      <div class="chart-item">
+        <div class="label">Overdue Tickets</div>
+        <div class="value" id="overdueTickets">-</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ward Leaderboard -->
+  <div class="leaderboard">
+    <h2>🏆 Ward Performance Leaderboard</h2>
+    <p style="color:var(--mute);margin-bottom:20px">Ranked by resolution rate and citizen satisfaction</p>
+    <table id="leaderboardTable">
+      <thead>
+        <tr>
+          <th class="rank">Rank</th>
+          <th>Ward</th>
+          <th class="metric">Total Tickets</th>
+          <th class="metric">Resolution Rate</th>
+          <th class="metric">Citizen Verified</th>
+          <th class="metric">Avg. Time (hrs)</th>
+          <th class="metric">Overdue</th>
+          <th class="metric">Status</th>
+        </tr>
+      </thead>
+      <tbody id="leaderboardBody">
+        <tr>
+          <td colspan="8" style="text-align:center;padding:40px;color:var(--mute)">Loading data...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="updated" id="lastUpdated">Last updated: -</div>
+
+  <div class="footer">
+    <h3>About CivicLoop</h3>
+    <p>CivicLoop ensures tickets are closed only when repairs are verified with photographic evidence and scene matching. This prevents false closures and improves accountability.</p>
+    <p style="margin-top:16px;font-size:0.85rem">
+      <strong>Verification Process:</strong> Location match ✓ Scene comparison ✓ Defect-gone check ✓
+    </p>
+    <p style="margin-top:20px">
+      <a href="/" style="color:var(--navy)">Report a Problem</a> | 
+      <a href="/officer.html" style="color:var(--navy)">Officer Login</a>
+    </p>
+  </div>
+</main>
+
+<script>
+const API_BASE = '';
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  // Auto-refresh every 30 seconds
+  setInterval(loadData, 30000);
+});
+
+async function loadData() {
+  try {
+    const [wardsRes, statsRes] = await Promise.all([
+      fetch(`${API_BASE}/wards/scores`),
+      fetch(`${API_BASE}/stats`)
+    ]);
+    
+    const wardsData = await wardsRes.json();
+    const statsData = await statsRes.json();
+    
+    updateSummary(statsData, wardsData);
+    updateLeaderboard(wardsData.wards);
+    updateLastUpdated(wardsData.generated_at);
+  } catch (error) {
+    console.error('Failed to load data:', error);
+  }
+}
+
+function updateSummary(stats, wardsData) {
+  document.getElementById('totalComplaints').textContent = stats.total_tickets || 0;
+  document.getElementById('resolutionRate').textContent = 
+    (stats.resolution_rate || 0).toFixed(1) + '%';
+  
+  // Calculate average time from wards
+  const avgTimes = wardsData.wards
+    .map(w => w.metrics.avg_resolution_hours)
+    .filter(t => t > 0);
+  const avgTime = avgTimes.length > 0 
+    ? (avgTimes.reduce((a, b) => a + b, 0) / avgTimes.length).toFixed(1)
+    : 0;
+  document.getElementById('avgTime').textContent = avgTime;
+  
+  document.getElementById('activeWards').textContent = wardsData.wards.length || 0;
+
+  // Calculate system-wide metrics
+  const totalVerified = wardsData.wards.reduce((sum, w) => {
+    const resolved = w.metrics.resolved || 0;
+    const verifiedRate = w.metrics.citizen_verified_rate || 0;
+    return sum + (resolved * verifiedRate / 100);
+  }, 0);
+  const totalResolved = wardsData.wards.reduce((sum, w) => sum + (w.metrics.resolved || 0), 0);
+  const citizenVerified = totalResolved > 0 ? (totalVerified / totalResolved * 100).toFixed(1) : 0;
+  document.getElementById('citizenVerified').textContent = citizenVerified + '%';
+
+  const totalReopened = wardsData.wards.reduce((sum, w) => sum + (w.metrics.reopened || 0), 0);
+  const reopenRate = totalResolved > 0 ? (totalReopened / totalResolved * 100).toFixed(1) : 0;
+  document.getElementById('reopenRate').textContent = reopenRate + '%';
+
+  document.getElementById('repeatDefects').textContent = stats.repeat_defects || 0;
+  
+  const totalOverdue = wardsData.wards.reduce((sum, w) => sum + (w.metrics.overdue || 0), 0);
+  document.getElementById('overdueTickets').textContent = totalOverdue;
+}
+
+function updateLeaderboard(wards) {
+  if (!wards || wards.length === 0) {
+    document.getElementById('leaderboardBody').innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center;padding:40px;color:var(--mute)">
+          No ward data available yet. Data will appear once wards are configured.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const tbody = document.getElementById('leaderboardBody');
+  tbody.innerHTML = wards.map((ward, index) => {
+    const rank = index + 1;
+    const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+    
+    const m = ward.metrics;
+    const resolutionRate = m.resolution_rate || 0;
+    const citizenVerified = m.citizen_verified_rate || 0;
+    const avgTime = m.avg_resolution_hours || 0;
+    const overdue = m.overdue || 0;
+    
+    // Determine status badge
+    let statusBadge = '';
+    if (resolutionRate >= 90 && citizenVerified >= 80) {
+      statusBadge = '<span class="badge excellent">Excellent</span>';
+    } else if (resolutionRate >= 70) {
+      statusBadge = '<span class="badge good">Good</span>';
+    } else {
+      statusBadge = '<span class="badge needs-attention">Needs Attention</span>';
+    }
+
+    // Resolution rate bar
+    const barClass = resolutionRate >= 90 ? '' : resolutionRate >= 70 ? 'warning' : 'bad';
+    const resolutionBar = `
+      <div>${resolutionRate.toFixed(1)}%</div>
+      <div class="progress-bar">
+        <div class="progress-fill ${barClass}" style="width:${resolutionRate}%"></div>
+      </div>
+    `;
+
+    return `
+      <tr>
+        <td class="rank ${rankClass}">${rankIcon}</td>
+        <td class="ward-name">${ward.ward_name}</td>
+        <td class="metric">${m.total_tickets}</td>
+        <td class="metric">${resolutionBar}</td>
+        <td class="metric ${citizenVerified >= 80 ? 'good' : citizenVerified >= 60 ? 'warning' : 'bad'}">
+          ${citizenVerified.toFixed(1)}%
+        </td>
+        <td class="metric">${avgTime.toFixed(1)}</td>
+        <td class="metric ${overdue > 5 ? 'bad' : overdue > 2 ? 'warning' : 'good'}">
+          ${overdue}
+        </td>
+        <td class="metric">${statusBadge}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateLastUpdated(timestamp) {
+  if (timestamp) {
+    const date = new Date(timestamp);
+    document.getElementById('lastUpdated').textContent = 
+      `Last updated: ${date.toLocaleString()}`;
+  }
+}
+</script>
+</body>
+</html>
